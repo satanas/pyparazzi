@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 #
 # Author: Wil Alvarez (aka Satanas)
@@ -12,14 +13,15 @@ from urllib import urlencode
 # Config variables
 TITLE = 'Galer&iacute;a de prueba'
 COLUMNS = 5
-HASHTAG = ''
-TEMPLATE = 'html/template.html'
-OUTPUT = 'html/test.html'
+HASHTAG = 'pyparazzi'
+MESSAGE = 'Sube tu foto a Twitter usando el hashtag #%s' % HASHTAG
+TEMPLATE = '/home/satanas/proyectos/pyparazzi/html/template.html'
+OUTPUT = '/var/www/pyparazzi/index.html'
 
 # Don't touch this :P
 SERVICES = ['plixi.com', 'twitpic.com', 'instagr.am', 'moby.to', 'picplz.com']
 TWITTER_URL = 'http://search.twitter.com/search.json'
-STR_REQ = '%s?q=&ors=twitpic.com+moby.to+plixi.com+instagr.am+picplz.com&tag=%s&rpp=30'
+STR_REQ = '%s?q=&ors=twitpic+moby+plixi+instagr.am+picplz&tag=%s&rpp=30'
 URL_PATTERN = re.compile('((http://|ftp://|https://|www\.)[-\w._~:/?#\[\]@!$&\'()*+,;=]*)')
 PLIXI_PATTERN = re.compile('<img (src=\".*?\") (alt=\".*?\") (id=\"photo\") />')
 PLIXI2_PATTERN = re.compile('<img (src=\".*?\") (alt=\".*?\") (style=\".*?\") />')
@@ -114,7 +116,6 @@ def get_image_url(url, service):
         if len(code) > 0:
             image_url = code[0][0][5:-1]
             comment = code[0][5][5:-1]
-    
     return image_url, comment
     
 def get_first_photo(text):
@@ -124,30 +125,32 @@ def get_first_photo(text):
                 try:
                     return get_image_url(url, srv)
                 except Exception, e:
-                    print e
+                    print "Error:", e
                     return None, None
     return None, None
     
 def generate_image(user, timestamp, image_url, comment, first=False):
     _class = ' first' if first else ''
-    
+    comment = comment.decode('utf-8')
+    #comment = comment.encode('ascii', 'xmlcharrefreplace')
     try:
-        return '''<div class="image%s">
+        return u'''<div class="image%s">
             <a href="%s" rel="lytebox[pyparazzi]" title="%s">
                 <img src="%s" width="150" height="150" />
             </a>
             <div class="author">Por: @%s</div>
             <div class="timestamp">%s</div>
         </div>''' % (_class, image_url, comment, image_url, user, timestamp)
-    except:
+    except Exception, e:
+        print "Error generando imagen:", e
         return '''<div class="image">
                 <img src="" width="150" height="150" />
             <div class="author">No se pudo cargar la imagen</div>
         </div>'''
     
-    
 def main():
     urlreq = STR_REQ % (TWITTER_URL, HASHTAG)
+    print "Searching on Twitter %s" % urlreq
     handle = urllib2.urlopen(urlreq)
     rtn = handle.read()
     response = json.loads(rtn)
@@ -168,7 +171,9 @@ def main():
     fd.close()
     
     page = temp.replace('$title$', TITLE)
+    page = page.replace('$message$', MESSAGE)
     page = page.replace('$content$', content)
+    page = page.encode('utf-8')
     
     fd = open(OUTPUT, 'w')
     fd.write(page)
