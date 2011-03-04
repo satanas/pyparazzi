@@ -13,23 +13,7 @@ import datetime
 import ConfigParser
 
 # Don't touch this :P
-DEFAULT_CFG = {
-    'General':{
-        'title': 'Test Gallery',
-        'columns': 5,
-        'hashtag': 'pyparazzi',
-        'message': 'Upload your photo to Twitter using hashtag #pyparazzi',
-        'html_template': '/var/www/pyparazzi/pyparazzi.template',
-        'html_root': '/var/www/pyparazzi/', 
-        'html_output': 'index.html', 
-        'thumbnail_folder_path': 'thumbnails/',
-        'thumbnail_width': 150,
-        'thumbnail_height': 150,
-    },
-}
-
 CONFIG = {}
-
 SERVICES = ['plixi.com', 'twitpic.com', 'instagr.am', 'moby.to', 'picplz.com']
 TWITTER_URL = 'http://search.twitter.com/search.json'
 STR_REQ = '%s?q=&ors=twitpic+moby+plixi+instagr.am+picplz&tag=%s&rpp=30'
@@ -224,9 +208,11 @@ def generate_image(user, timestamp, image_url, thumbnail_url, comment, first=Fal
             <a href="%s" rel="lytebox[pyparazzi]" title="%s">
                 <img src="%s" width="%s" height="%s" />
             </a>
-            <div class="author">Por: @%s</div>
+            <div class="author">Por: <a href="http://twitter.com/%s">@%s</a></div>
             <div class="timestamp">%s</div>
-        </div>''' % (_class, image_url, comment, thumbnail_url, CONFIG['thumbnail_width'], CONFIG['thumbnail_height'], user, timestamp)
+        </div>''' % (_class, image_url, comment, thumbnail_url, 
+                     CONFIG['thumbnail_width'], CONFIG['thumbnail_height'], 
+                     user, user, timestamp)
     except Exception, e:
         print "Error generando imagen:", e
         return '''<div class="image">
@@ -240,27 +226,28 @@ def load_config():
     cfgfile = os.path.join(cfgdir, 'config')
     
     # Making default config
-    if not os.path.isdir(cfgdir): 
-        os.makedirs(cfgdir)
-    if not os.path.isfile(cfgfile): 
-        _fd = open(cfgfile, 'w')
-        cfg.add_section('General')
-        for option, value in DEFAULT_CFG['General'].iteritems():
-            cfg.set('General', option, value)
-        cfg.write(_fd)
-        _fd.close()
+    if not os.path.isdir(cfgdir) or not os.path.isfile(cfgfile): 
+        return False
     
     global CONFIG
     # Reading config
     cfg.read(cfgfile)
-    for option, value in DEFAULT_CFG['General'].iteritems():
-        CONFIG[option] = cfg.get('General', option)
-    CONFIG['columns'] =  int(CONFIG['columns'])
-    CONFIG['thumbnail_width'] =  int(CONFIG['thumbnail_width'])
-    CONFIG['thumbnail_height'] =  int(CONFIG['thumbnail_height'])
+    CONFIG['columns'] =  int(cfg.get('General', 'columns'))
+    CONFIG['hashtag'] =  cfg.get('General', 'hashtag')
+    CONFIG['title'] =  cfg.get('General', 'title')
+    CONFIG['message'] =  cfg.get('General', 'message')
+    CONFIG['html_root'] =  cfg.get('General', 'html_root')
+    CONFIG['html_template'] =  cfg.get('General', 'html_template')
+    CONFIG['html_output'] =  cfg.get('General', 'html_output')
+    CONFIG['thumbnail_width'] =  int(cfg.get('General', 'thumbnail_width'))
+    CONFIG['thumbnail_height'] =  int(cfg.get('General', 'thumbnail_height'))
+    CONFIG['thumbnail_folder_path'] =  cfg.get('General', 'thumbnail_folder_path')
+    return True
     
 def main():
-    load_config()
+    if not load_config():
+        print "Can't find config file. Please create it and try again"
+        return
     urlreq = STR_REQ % (TWITTER_URL, CONFIG['hashtag'])
     print "Searching on Twitter %s" % urlreq
     handle = urllib2.urlopen(urlreq)
