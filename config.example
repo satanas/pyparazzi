@@ -1,0 +1,11 @@
+[General]
+columns = 5
+hashtag = pyparazzi
+title = Test Gallery
+message = Upload your photo to Twitter using hashtag #pyparazzi
+html_root = /var/www/pyparazzi/
+html_template = /var/www/pyparazzi/pyparazzi.template
+html_output = index.html
+thumbnail_width = 150
+thumbnail_height = 150
+thumbnail_folder_path = thumbnails/

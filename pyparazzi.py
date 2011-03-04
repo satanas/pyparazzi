@@ -13,23 +13,7 @@ import datetime
 import ConfigParser
 
 # Don't touch this :P
-DEFAULT_CFG = {
-    'General':{
-        'title': 'Test Gallery',
-        'columns': 5,
-        'hashtag': 'pyparazzi',
-        'message': 'Upload your photo to Twitter using hashtag #pyparazzi',
-        'html_template': '/var/www/pyparazzi/pyparazzi.template',
-        'html_root': '/var/www/pyparazzi/', 
-        'html_output': 'index.html', 
-        'thumbnail_folder_path': 'thumbnails/',
-        'thumbnail_width': 150,
-        'thumbnail_height': 150,
-    },
-}
-
 CONFIG = {}
-
 SERVICES = ['plixi.com', 'twitpic.com', 'instagr.am', 'moby.to', 'picplz.com']
 TWITTER_URL = 'http://search.twitter.com/search.json'
 STR_REQ = '%s?q=&ors=twitpic+moby+plixi+instagr.am+picplz&tag=%s&rpp=30'
@@ -221,15 +205,8 @@ def load_config():
     cfgfile = os.path.join(cfgdir, 'config')
     
     # Making default config
-    if not os.path.isdir(cfgdir): 
-        os.makedirs(cfgdir)
-    if not os.path.isfile(cfgfile): 
-        _fd = open(cfgfile, 'w')
-        cfg.add_section('General')
-        for option, value in DEFAULT_CFG['General'].iteritems():
-            cfg.set('General', option, value)
-        cfg.write(_fd)
-        _fd.close()
+    if not os.path.isdir(cfgdir) or not os.path.isfile(cfgfile): 
+        return False
     
     global CONFIG
     # Reading config
@@ -239,9 +216,12 @@ def load_config():
     CONFIG['columns'] =  int(CONFIG['columns'])
     CONFIG['thumbnail_width'] =  int(CONFIG['thumbnail_width'])
     CONFIG['thumbnail_height'] =  int(CONFIG['thumbnail_height'])
+    return True
     
 def main():
-    load_config()
+    if not load_config():
+        print "Can't find config file. Please create it and try again"
+        return
     urlreq = STR_REQ % (TWITTER_URL, CONFIG['hashtag'])
     print "Searching on Twitter %s" % urlreq
     handle = urllib2.urlopen(urlreq)
