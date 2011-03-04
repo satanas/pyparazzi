@@ -140,19 +140,38 @@ def get_first_photo(text):
                     return None, None
     return None, None
 
+# This function remains unused until science finds a way to call it without making Wil cry
+def remove_previous_thumbnails():
+    folder = os.path.join(CONFIG['html_root'], CONFIG['thumbnail_folder_path'])
+
+    for thumbnail_file in os.listdir(folder):
+        file_path = os.path.join(folder, thumbnail_file)
+        try:
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+        except Exception, e:
+            print e
+
 def generate_thumbnail(image_url):
+    # Removes everything after a '?' symbol in the url if there is one (for local file name purposes)
+    simple_image_url = image_url.split('?')[0]
+      
+    # Checks if thumbnail already exists (in which case there is no need to generate it again)
+    outfilename = '.'.join(os.path.basename(simple_image_url).split('.')[:-1]) + '.png'
+    outfilepath = os.path.join(CONFIG['html_root'], CONFIG['thumbnail_folder_path'], outfilename)
+    thumbpath = os.path.join(CONFIG['thumbnail_folder_path'], outfilename)
+    
+    if os.path.isfile(outfilepath):
+        return thumbpath
+    
+    print 'Processing image from %s' % image_url
+    
     # Gets image from url
     opener1 = urllib2.build_opener()
     page1 = opener1.open(image_url)
     outfile = page1.read()
-    
-    # Removes everything after a '?' symbol in the url if there is one (for local file name purposes)
-    image_url = image_url.split('?')[0]
-    
-    # Saves image locally
-    outfilename = "thumbnail-" + os.path.basename(image_url).split('.')[0] + '.png'
-    outfilepath = os.path.join(CONFIG['html_root'], CONFIG['thumbnail_folder_path'], outfilename)
-    thumbpath = os.path.join(CONFIG['thumbnail_folder_path'], outfilename)
+      
+    # Saves image locally 
     fout = open(outfilepath, "wb")
     fout.write(outfile)
     fout.close()
@@ -255,7 +274,6 @@ def main():
         timestamp = convert_time(tweet['created_at'])
         image_url, comment = get_first_photo(tweet['text'])
         if image_url:
-            print 'Processing image from %s' % image_url
             first = True if (count % CONFIG['columns'] == 0) else False
             content += generate_image(user, timestamp, image_url, generate_thumbnail(image_url), comment, first)
             count += 1
