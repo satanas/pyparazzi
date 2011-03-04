@@ -189,9 +189,11 @@ def generate_image(user, timestamp, image_url, thumbnail_url, comment, first=Fal
             <a href="%s" rel="lytebox[pyparazzi]" title="%s">
                 <img src="%s" width="%s" height="%s" />
             </a>
-            <div class="author">Por: @%s</div>
+            <div class="author">Por: <a href="http://twitter.com/%s">@%s</a></div>
             <div class="timestamp">%s</div>
-        </div>''' % (_class, image_url, comment, thumbnail_url, CONFIG['thumbnail_width'], CONFIG['thumbnail_height'], user, timestamp)
+        </div>''' % (_class, image_url, comment, thumbnail_url, 
+                     CONFIG['thumbnail_width'], CONFIG['thumbnail_height'], 
+                     user, user, timestamp)
     except Exception, e:
         print "Error generando imagen:", e
         return '''<div class="image">
