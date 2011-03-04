@@ -141,7 +141,7 @@ def generate_thumbnail(image_url):
     simple_image_url = image_url.split('?')[0]
       
     # Checks if thumbnail already exists (in which case there is no need to generate it again)
-    outfilename = '.'.join(os.path.basename(simple_image_url).split('.')[:-1]) + '.png'
+    outfilename = os.path.basename(simple_image_url) + '.png'
     outfilepath = os.path.join(CONFIG['html_root'], CONFIG['thumbnail_folder_path'], outfilename)
     thumbpath = os.path.join(CONFIG['thumbnail_folder_path'], outfilename)
     
