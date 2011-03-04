@@ -211,11 +211,16 @@ def load_config():
     global CONFIG
     # Reading config
     cfg.read(cfgfile)
-    for option, value in DEFAULT_CFG['General'].iteritems():
-        CONFIG[option] = cfg.get('General', option)
-    CONFIG['columns'] =  int(CONFIG['columns'])
-    CONFIG['thumbnail_width'] =  int(CONFIG['thumbnail_width'])
-    CONFIG['thumbnail_height'] =  int(CONFIG['thumbnail_height'])
+    CONFIG['columns'] =  int(cfg.get('General', 'columns'))
+    CONFIG['hashtag'] =  cfg.get('General', 'hashtag')
+    CONFIG['title'] =  cfg.get('General', 'title')
+    CONFIG['message'] =  cfg.get('General', 'message')
+    CONFIG['html_root'] =  cfg.get('General', 'html_root')
+    CONFIG['html_template'] =  cfg.get('General', 'html_template')
+    CONFIG['html_output'] =  cfg.get('General', 'html_output')
+    CONFIG['thumbnail_width'] =  int(cfg.get('General', 'thumbnail_width'))
+    CONFIG['thumbnail_height'] =  int(cfg.get('General', 'thumbnail_height'))
+    CONFIG['thumbnail_folder_path'] =  cfg.get('General', 'thumbnail_folder_path')
     return True
     
 def main():
