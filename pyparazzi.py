@@ -4,27 +4,32 @@
 # Author: Wil Alvarez (aka Satanas)
 # Feb 28, 2011
 
+import os
 import re
 import time
+import Image
 import urllib2
 import datetime
-from urllib import urlencode
-import Image
-import os
-
-# Config variables
-TITLE = 'Galer&iacute;a de prueba'
-COLUMNS = 5
-HASHTAG = 'pyparazzi'
-MESSAGE = 'Sube tu foto a Twitter usando el hashtag #%s' % HASHTAG
-TEMPLATE = '/home/eleazar/Proyectos/pyparazzi/html/template.html'
-OUTPUT = '/var/www/pyparazzi/index.html'
-HTML_ROOT = '/var/www/pyparazzi/'
-THUMBNAIL_FOLDER_PATH = 'thumbnails/'
-THUMBNAIL_WIDTH = 150
-THUMBNAIL_HEIGHT = 150
+import ConfigParser
 
 # Don't touch this :P
+DEFAULT_CFG = {
+    'General':{
+        'title': 'Test Gallery',
+        'columns': 5,
+        'hashtag': 'pyparazzi',
+        'message': 'Upload your photo to Twitter using hashtag #pyparazzi',
+        'html_template': '/var/www/pyparazzi/pyparazzi.template',
+        'html_root': '/var/www/pyparazzi/', 
+        'html_output': 'index.html', 
+        'thumbnail_folder_path': 'thumbnails/',
+        'thumbnail_width': 150,
+        'thumbnail_height': 150,
+    },
+}
+
+CONFIG = {}
+
 SERVICES = ['plixi.com', 'twitpic.com', 'instagr.am', 'moby.to', 'picplz.com']
 TWITTER_URL = 'http://search.twitter.com/search.json'
 STR_REQ = '%s?q=&ors=twitpic+moby+plixi+instagr.am+picplz&tag=%s&rpp=30'
@@ -134,6 +139,7 @@ def get_first_photo(text):
                     print "Error:", e
                     return None, None
     return None, None
+
 def generate_thumbnail(image_url):
     # Gets image from url
     opener1 = urllib2.build_opener()
@@ -142,22 +148,24 @@ def generate_thumbnail(image_url):
     
     # Removes everything after a '?' symbol in the url if there is one (for local file name purposes)
     image_url = image_url.split('?')[0]
-
+    
     # Saves image locally
-    outfilename = "thumbnail-" + os.path.basename(image_url) + ".png"
-    fout = open(HTML_ROOT + THUMBNAIL_FOLDER_PATH + outfilename, "wb")
+    outfilename = "thumbnail-" + os.path.basename(image_url).split('.')[0] + '.png'
+    outfilepath = os.path.join(CONFIG['html_root'], CONFIG['thumbnail_folder_path'], outfilename)
+    thumbpath = os.path.join(CONFIG['thumbnail_folder_path'], outfilename)
+    fout = open(outfilepath, "wb")
     fout.write(outfile)
     fout.close()
     
     # Opens image
-    im = Image.open(HTML_ROOT + THUMBNAIL_FOLDER_PATH + outfilename)
+    im = Image.open(outfilepath)
     
     # Gets image size
     original_width, original_height = im.size
     
     # Calculates aspect ratios
     original_ratio = original_width / float(original_height)
-    thumbnail_ratio = THUMBNAIL_WIDTH / float(THUMBNAIL_HEIGHT)
+    thumbnail_ratio = CONFIG['thumbnail_width'] / float(CONFIG['thumbnail_height'])
     
     # Calculates crop size and offset according to aspect ratios
     crop_needed = True
@@ -181,18 +189,17 @@ def generate_thumbnail(image_url):
         im = im.crop(cropbox)
     
     # Resize
-    im = im.resize((THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT))
+    im = im.resize((CONFIG['thumbnail_width'], CONFIG['thumbnail_height']))
         
     # Save
-    im.save(HTML_ROOT + THUMBNAIL_FOLDER_PATH + outfilename, "PNG")
+    im.save(outfilepath, "PNG")
     
     # Returns thumbnail url
-    return THUMBNAIL_FOLDER_PATH + outfilename
+    return thumbpath
     
 def generate_image(user, timestamp, image_url, thumbnail_url, comment, first=False):
     _class = ' first' if first else ''
     comment = comment.decode('utf-8')
-    #comment = comment.encode('ascii', 'xmlcharrefreplace')
     try:
         return u'''<div class="image%s">
             <a href="%s" rel="lytebox[pyparazzi]" title="%s">
@@ -200,16 +207,42 @@ def generate_image(user, timestamp, image_url, thumbnail_url, comment, first=Fal
             </a>
             <div class="author">Por: @%s</div>
             <div class="timestamp">%s</div>
-        </div>''' % (_class, image_url, comment, thumbnail_url, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, user, timestamp)
+        </div>''' % (_class, image_url, comment, thumbnail_url, CONFIG['thumbnail_width'], CONFIG['thumbnail_height'], user, timestamp)
     except Exception, e:
         print "Error generando imagen:", e
         return '''<div class="image">
                 <img src="" width="%s" height="%s" />
             <div class="author">No se pudo cargar la imagen</div>
-        </div>''' % (THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT)
+        </div>''' % (CONFIG['thumbnail_width'], CONFIG['thumbnail_height'])
+    
+def load_config():
+    cfg = ConfigParser.ConfigParser()
+    cfgdir = os.path.join(os.path.expanduser('~'), '.config', 'pyparazzi')
+    cfgfile = os.path.join(cfgdir, 'config')
+    
+    # Making default config
+    if not os.path.isdir(cfgdir): 
+        os.makedirs(cfgdir)
+    if not os.path.isfile(cfgfile): 
+        _fd = open(cfgfile, 'w')
+        cfg.add_section('General')
+        for option, value in DEFAULT_CFG['General'].iteritems():
+            cfg.set('General', option, value)
+        cfg.write(_fd)
+        _fd.close()
+    
+    global CONFIG
+    # Reading config
+    cfg.read(cfgfile)
+    for option, value in DEFAULT_CFG['General'].iteritems():
+        CONFIG[option] = cfg.get('General', option)
+    CONFIG['columns'] =  int(CONFIG['columns'])
+    CONFIG['thumbnail_width'] =  int(CONFIG['thumbnail_width'])
+    CONFIG['thumbnail_height'] =  int(CONFIG['thumbnail_height'])
     
 def main():
-    urlreq = STR_REQ % (TWITTER_URL, HASHTAG)
+    load_config()
+    urlreq = STR_REQ % (TWITTER_URL, CONFIG['hashtag'])
     print "Searching on Twitter %s" % urlreq
     handle = urllib2.urlopen(urlreq)
     rtn = handle.read()
@@ -222,20 +255,22 @@ def main():
         timestamp = convert_time(tweet['created_at'])
         image_url, comment = get_first_photo(tweet['text'])
         if image_url:
-            first = True if (count % COLUMNS == 0) else False
+            print 'Processing image from %s' % image_url
+            first = True if (count % CONFIG['columns'] == 0) else False
             content += generate_image(user, timestamp, image_url, generate_thumbnail(image_url), comment, first)
             count += 1
     
-    fd = open(TEMPLATE, 'r')
+    fd = open(CONFIG['html_template'], 'r')
     temp = fd.read()
     fd.close()
     
-    page = temp.replace('$title$', TITLE)
-    page = page.replace('$message$', MESSAGE)
+    page = temp.replace('$title$', CONFIG['title'])
+    page = page.replace('$message$', CONFIG['message'])
     page = page.replace('$content$', content)
     page = page.encode('utf-8')
     
-    fd = open(OUTPUT, 'w')
+    outfilepath = os.path.join(CONFIG['html_root'], CONFIG['html_output'])
+    fd = open(outfilepath, 'w')
     fd.write(page)
     fd.close()
 
