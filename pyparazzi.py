@@ -9,14 +9,20 @@ import time
 import urllib2
 import datetime
 from urllib import urlencode
+import Image
+import os
 
 # Config variables
 TITLE = 'Galer&iacute;a de prueba'
 COLUMNS = 5
 HASHTAG = 'pyparazzi'
 MESSAGE = 'Sube tu foto a Twitter usando el hashtag #%s' % HASHTAG
-TEMPLATE = '/home/satanas/proyectos/pyparazzi/html/template.html'
+TEMPLATE = '/home/eleazar/Proyectos/pyparazzi/html/template.html'
 OUTPUT = '/var/www/pyparazzi/index.html'
+HTML_ROOT = '/var/www/pyparazzi/'
+THUMBNAIL_FOLDER_PATH = 'thumbnails/'
+THUMBNAIL_WIDTH = 150
+THUMBNAIL_HEIGHT = 150
 
 # Don't touch this :P
 SERVICES = ['plixi.com', 'twitpic.com', 'instagr.am', 'moby.to', 'picplz.com']
@@ -128,25 +134,79 @@ def get_first_photo(text):
                     print "Error:", e
                     return None, None
     return None, None
+def generate_thumbnail(image_url):
+    # Gets image from url
+    opener1 = urllib2.build_opener()
+    page1 = opener1.open(image_url)
+    outfile = page1.read()
     
-def generate_image(user, timestamp, image_url, comment, first=False):
+    # Removes everything after a '?' symbol in the url if there is one (for local file name purposes)
+    image_url = image_url.split('?')[0]
+
+    # Saves image locally
+    outfilename = "thumbnail-" + os.path.basename(image_url) + ".png"
+    fout = open(HTML_ROOT + THUMBNAIL_FOLDER_PATH + outfilename, "wb")
+    fout.write(outfile)
+    fout.close()
+    
+    # Opens image
+    im = Image.open(HTML_ROOT + THUMBNAIL_FOLDER_PATH + outfilename)
+    
+    # Gets image size
+    original_width, original_height = im.size
+    
+    # Calculates aspect ratios
+    original_ratio = original_width / float(original_height)
+    thumbnail_ratio = THUMBNAIL_WIDTH / float(THUMBNAIL_HEIGHT)
+    
+    # Calculates crop size and offset according to aspect ratios
+    crop_needed = True
+
+    if thumbnail_ratio > original_ratio:
+        crop_width = original_width
+        crop_height = int(original_width / thumbnail_ratio)
+        crop_offset_x = 0
+        crop_offset_y = (original_height - crop_height) / 2
+    elif thumbnail_ratio < original_ratio:
+        crop_width = int(original_height * thumbnail_ratio)
+        crop_height = original_height
+        crop_offset_x = (original_width - crop_width) / 2
+        crop_offset_y = 0
+    else:
+        crop_needed = False
+    
+    # Crop (if needed)
+    if crop_needed:
+        cropbox = (crop_offset_x, crop_offset_y, crop_offset_x+crop_width, crop_offset_y+crop_height)
+        im = im.crop(cropbox)
+    
+    # Resize
+    im = im.resize((THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT))
+        
+    # Save
+    im.save(HTML_ROOT + THUMBNAIL_FOLDER_PATH + outfilename, "PNG")
+    
+    # Returns thumbnail url
+    return THUMBNAIL_FOLDER_PATH + outfilename
+    
+def generate_image(user, timestamp, image_url, thumbnail_url, comment, first=False):
     _class = ' first' if first else ''
     comment = comment.decode('utf-8')
     #comment = comment.encode('ascii', 'xmlcharrefreplace')
     try:
         return u'''<div class="image%s">
             <a href="%s" rel="lytebox[pyparazzi]" title="%s">
-                <img src="%s" width="150" height="150" />
+                <img src="%s" width="%s" height="%s" />
             </a>
             <div class="author">Por: @%s</div>
             <div class="timestamp">%s</div>
-        </div>''' % (_class, image_url, comment, image_url, user, timestamp)
+        </div>''' % (_class, image_url, comment, thumbnail_url, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT, user, timestamp)
     except Exception, e:
         print "Error generando imagen:", e
         return '''<div class="image">
-                <img src="" width="150" height="150" />
+                <img src="" width="%s" height="%s" />
             <div class="author">No se pudo cargar la imagen</div>
-        </div>'''
+        </div>''' % (THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT)
     
 def main():
     urlreq = STR_REQ % (TWITTER_URL, HASHTAG)
@@ -163,7 +223,7 @@ def main():
         image_url, comment = get_first_photo(tweet['text'])
         if image_url:
             first = True if (count % COLUMNS == 0) else False
-            content += generate_image(user, timestamp, image_url, comment, first)
+            content += generate_image(user, timestamp, image_url, generate_thumbnail(image_url), comment, first)
             count += 1
     
     fd = open(TEMPLATE, 'r')
